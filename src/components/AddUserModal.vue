@@ -2,23 +2,25 @@
   <q-dialog v-model="localModalOpen" persistent @hide="emitClose">
     <q-card style="width: 600px; max-width: 1000px; height: 500px">
       <q-card-section>
-        <div class="text-h6">Adicionar Novo Usuário</div>
+        <div class="text-h6">
+          {{ isEditMode ? "Editar Usuário" : "Adicionar Novo Usuário" }}
+        </div>
       </q-card-section>
 
       <q-card-section>
-        <q-form @submit.prevent="adicionarUsuario">
+        <q-form @submit.prevent="saveUser">
           <div class="row q-col-gutter-md q-mb-md">
             <div class="col-6">
               <q-input
-                v-model="newUser.nome"
+                v-model="localUser.nome"
                 label="Nome"
                 :rules="nomeRules"
                 lazy-rules
-                :color="isValid(newUser.nome, nomeRules) ? 'green' : ''"
+                :color="isValid(localUser.nome, nomeRules) ? 'green' : ''"
               >
                 <template v-slot:append>
                   <q-icon
-                    v-if="isValid(newUser.nome, nomeRules)"
+                    v-if="isValid(localUser.nome, nomeRules)"
                     name="checkbox"
                     color="green"
                   />
@@ -28,16 +30,16 @@
             </div>
             <div class="col-6">
               <q-input
-                v-model="newUser.email"
+                v-model="localUser.email"
                 label="Email"
                 :rules="emailRules"
                 lazy-rules
-                :color="isValid(newUser.email, emailRules) ? 'green' : ''"
+                :color="isValid(localUser.email, emailRules) ? 'green' : ''"
                 @update:model-value="validateEmail"
               >
                 <template v-slot:append>
                   <q-icon
-                    v-if="isValid(newUser.email, emailRules)"
+                    v-if="isValid(localUser.email, emailRules)"
                     name="checkbox"
                     color="green"
                   />
@@ -47,16 +49,16 @@
             </div>
             <div class="col-6">
               <q-input
-                v-model="newUser.cpf"
+                v-model="localUser.cpf"
                 label="CPF"
                 :rules="cpfRules"
                 lazy-rules
-                :color="isValid(newUser.cpf, cpfRules) ? 'green' : ''"
+                :color="isValid(localUser.cpf, cpfRules) ? 'green' : ''"
                 @update:model-value="validateCPF"
               >
                 <template v-slot:append>
                   <q-icon
-                    v-if="isValid(newUser.cpf, cpfRules)"
+                    v-if="isValid(localUser.cpf, cpfRules)"
                     name="checkbox"
                     color="green"
                   />
@@ -66,18 +68,20 @@
             <br />
             <div class="col-6">
               <q-input
-                v-model="newUser.telefone"
+                v-model="localUser.telefone"
                 label="Telefone"
                 :rules="telefoneRules"
                 lazy-rules
                 fill-mask
                 mask="(##)#####-####"
-                :color="isValid(newUser.telefone, telefoneRules) ? 'green' : ''"
+                :color="
+                  isValid(localUser.telefone, telefoneRules) ? 'green' : ''
+                "
                 @update:model-value="validateTelefone"
               >
                 <template v-slot:append>
                   <q-icon
-                    v-if="isValid(newUser.telefone, telefoneRules)"
+                    v-if="isValid(localUser.telefone, telefoneRules)"
                     name="checkbox"
                     color="green"
                   />
@@ -85,9 +89,15 @@
               </q-input>
               <br />
             </div>
-            // Corrija a formatacao de tempo
+            <p>TODO: selecionar a data nao esta funcionando</p>
             <div class="col-5" style="max-width: 300px">
-              <q-input v-model="date" mask="date" :rules="dateRules">
+              <q-input
+                v-model="dataNascimentoFormatted"
+                label="Data de Nascimento"
+                mask="##/##/####"
+                :rules="dateRules"
+                @input="formatDateInput"
+              >
                 <template v-slot:append>
                   <q-icon name="event" class="cursor-pointer">
                     <q-popup-proxy
@@ -95,13 +105,17 @@
                       transition-show="scale"
                       transition-hide="scale"
                     >
-                      <q-date minimal v-model="date">
+                      <q-date
+                        v-model="dataNascimentoInternal"
+                        @update:model-value="updateDate"
+                      >
                         <div class="row items-center justify-end">
                           <q-btn
                             v-close-popup
                             label="Fechar"
                             color="primary"
                             flat
+                            @click="deleteUser"
                           />
                         </div>
                       </q-date>
@@ -118,17 +132,18 @@
                 label="Criar senha"
                 left-label
               />
+              <p v-if="!modalSenha">senha padrao: 123456</p>
               <q-input
                 v-if="modalSenha"
-                v-model="newUser.senha"
+                v-model="localUser.senha"
                 label="Senha"
                 :rules="senhaRules"
                 lazy-rules
-                :color="isValid(newUser.senha, senhaRules) ? 'green' : ''"
+                :color="isValid(localUser.senha, senhaRules) ? 'green' : ''"
               >
                 <template v-slot:append>
                   <q-icon
-                    v-if="isValid(newUser.senha, senhaRules)"
+                    v-if="isValid(localUser.senha, senhaRules)"
                     name="checkbox"
                     color="green"
                   />
@@ -137,21 +152,17 @@
             </div>
             <q-card-actions align="right">
               <q-btn flat label="Cancelar" @click="closeModal" />
-              <q-btn
-                color="primary"
-                label="Adicionar"
-                @click="adicionarUsuario"
-              />
+              <q-btn color="primary" label="Salvar" @click="saveUser" />
             </q-card-actions>
           </div>
         </q-form>
-        {{ newUser }}
       </q-card-section>
     </q-card>
   </q-dialog>
 </template>
 
 <script>
+import axios from "axios";
 export default {
   name: "AddUserDialog",
   props: {
@@ -163,12 +174,18 @@ export default {
       type: Array,
       required: true,
     },
+    user: {
+      type: Object,
+      default: null,
+    },
   },
   data() {
     return {
+      dataNascimentoFormatted: "",
+      dataNascimentoInternal: "",
       localModalOpen: this.isModalOpen,
       modalSenha: false,
-      newUser: {
+      localUser: {
         nome: "",
         email: "",
         cpf: "",
@@ -176,14 +193,10 @@ export default {
         dataNascimento: "",
         senha: "123456",
       },
-      formattedDate: "",
       nomeRules: [
         (val) => !!val || "Nome é obrigatório",
         (val) => val.length <= 100 || "Nome deve ter no máximo 100 caracteres",
         (val) => val.length >= 3 || "Nome deve ter no mínimo 3 caracteres",
-        //(val) => Validar nome com expressão regular
-        //  /^[A-Z][a-z]*([ ]?[A-Z][a-z]*)*$/.test(val) ||
-        //  "Nome deve começar com letra maiúscula",
       ],
       emailRules: [
         (val) => !!val || "Email é obrigatório",
@@ -204,7 +217,7 @@ export default {
       dateRules: [
         (val) => !!val || "Data de aniversário é obrigatória",
         (val) =>
-          /^\d{2}-\d{2}-\d{4}$/.test(val) ||
+          /^\d{2}\/\d{2}\/\d{4}$/.test(val) ||
           "Data deve estar no formato DD/MM/YYYY",
       ],
       senhaRules: [
@@ -219,16 +232,30 @@ export default {
   watch: {
     isModalOpen(val) {
       this.localModalOpen = val;
+      if (val && this.user) {
+        this.localUser = { ...this.user };
+        this.dataNascimentoFormatted = this.formatDateToBR(
+          this.localUser.dataNascimento
+        );
+        this.dataNascimentoInternal = this.localUser.dataNascimento;
+      } else if (val && !this.user) {
+        this.resetLocalUserForm();
+      }
     },
-    "newUser.dataNascimento": function (val) {
-      this.formattedDate = this.formatDate(val);
+    dataNascimentoFormatted(newVal) {
+      this.localUser.dataNascimento = this.formatDateToISO(newVal);
     },
     modalSenha(val) {
       if (!val) {
-        this.newUser.senha = "123456";
+        this.localUser.senha = "123456";
       } else {
-        this.newUser.senha = "";
+        this.localUser.senha = "";
       }
+    },
+  },
+  computed: {
+    isEditMode() {
+      return !!this.user;
     },
   },
   methods: {
@@ -252,7 +279,7 @@ export default {
           (rule) => rule !== this.cpfDuplicateRule
         );
       }
-      this.newUser.cpf = value;
+      this.localUser.cpf = value;
     },
     validateEmail(value) {
       const exists = this.existingUsers.some((user) => user.email === value);
@@ -266,7 +293,7 @@ export default {
           (rule) => rule !== this.emailDuplicateRule
         );
       }
-      this.newUser.email = value;
+      this.localUser.email = value;
     },
     validateTelefone(value) {
       const exists = this.existingUsers.some((user) => user.telefone === value);
@@ -282,7 +309,7 @@ export default {
           (rule) => rule !== this.telefoneDuplicateRule
         );
       }
-      this.newUser.telefone = value;
+      this.localUser.telefone = value;
     },
     emitClose() {
       this.$emit("close");
@@ -291,43 +318,87 @@ export default {
       this.localModalOpen = false;
       this.emitClose();
     },
-    async adicionarUsuario() {
-      try {
-        console.log("Adicionando usuário...");
-        const response = await axios.post(
-          "http://localhost:8080/api/v1/usuarios",
-          this.newUser
-        );
-        console.log("Usuário adicionado:", response);
-        this.$emit("user-added", response.data);
-        this.closeModal();
-        this.resetNewUserForm();
+    async saveUser() {
+      if (this.isEditMode) {
+        // Lógica para editar usuário
+        try {
+          const response = await axios.put(
+            `http://localhost:8080/api/v1/usuarios/${this.localUser.id}`,
+            this.localUser
+          );
+          this.$emit("user-added", response.data); // Emitir evento para recarregar lista de usuários
+          this.closeModal();
+          this.resetLocalUserForm();
 
-        // Emite evento para o componente pai tratar a notificação
-        this.$emit("notification", {
-          message: "Usuário adicionado com sucesso!",
-          type: "success",
-        });
-      } catch (error) {
-        console.error("Erro ao adicionar usuário:", error);
+          // Emite evento para o componente pai tratar a notificação
+          this.$emit("notification", {
+            message: "Usuário editado com sucesso!",
+            type: "success",
+          });
+        } catch (error) {
+          console.error("Erro ao editar usuário:", error);
 
-        // Emite evento para o componente pai tratar a notificação de erro
-        this.$emit("notification", {
-          message: "Erro ao adicionar usuário: " + error.message,
-          type: "error",
-        });
+          // Emite evento para o componente pai tratar a notificação de erro
+          this.$emit("notification", {
+            message: "Erro ao editar usuário: " + error.message,
+            type: "error",
+          });
+        }
+      } else {
+        // Lógica para adicionar usuário
+        try {
+          const response = await axios.post(
+            "http://localhost:8080/api/v1/usuarios",
+            this.localUser
+          );
+          this.$emit("user-added", response.data); // Emitir evento para recarregar lista de usuários
+          this.closeModal();
+          this.resetLocalUserForm();
+
+          // Emite evento para o componente pai tratar a notificação
+          this.$emit("notification", {
+            message: "Usuário adicionado com sucesso!",
+            type: "success",
+          });
+        } catch (error) {
+          console.error("Erro ao adicionar usuário:", error);
+
+          // Emite evento para o componente pai tratar a notificação de erro
+          this.$emit("notification", {
+            message: "Erro ao adicionar usuário: " + error.message,
+            type: "error",
+          });
+        }
       }
     },
-    resetNewUserForm() {
-      this.newUser = {
+    resetLocalUserForm() {
+      this.localUser = {
         nome: "",
         email: "",
         cpf: "",
         telefone: "",
         dataNascimento: "",
-        senha: "",
+        senha: "123456",
       };
-      this.formattedDate = "";
+      this.dataNascimentoFormatted = "";
+    },
+    formatDateToBR(date) {
+      if (!date) return "";
+      const [year, month, day] = date.split("-");
+      return `${day}/${month}/${year}`;
+    },
+    formatDateToISO(date) {
+      if (!date) return "";
+      const [day, month, year] = date.split("/");
+      return `${year}-${month}-${day}`;
+    },
+    formatDateInput(val) {
+      this.dataNascimentoInternal = this.formatDateToISO(val);
+    },
+    updateDate(val) {
+      this.dataNascimentoInternal = val;
+      this.dataNascimentoFormatted = this.formatDateToBR(val);
+      this.localUser.dataNascimento = val;
     },
   },
 };

@@ -1,7 +1,7 @@
 <template>
   <q-footer class="bg-grey-8 text-white" elevated>
     <q-toolbar>
-      <q-toolbar-title> © 2024 My Application </q-toolbar-title>
+      <q-toolbar-title> © 2024 - Virtual Shelf Shopping Front </q-toolbar-title>
     </q-toolbar>
   </q-footer>
 </template>
