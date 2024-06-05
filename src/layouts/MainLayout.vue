@@ -10,7 +10,10 @@
           <q-item-section>Home</q-item-section>
         </q-item>
         <q-item clickable v-ripple to="/users">
-          <q-item-section>Users</q-item-section>
+          <q-item-section>Usuários</q-item-section>
+        </q-item>
+        <q-item clickable v-ripple to="/products">
+          <q-item-section>Produtos</q-item-section>
         </q-item>
       </q-list>
     </q-drawer>

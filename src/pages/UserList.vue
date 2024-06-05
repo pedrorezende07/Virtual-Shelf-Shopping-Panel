@@ -1,6 +1,6 @@
 <template>
   <div class="q-pa-md">
-    <h3>Usuários</h3>
+    <h3>Controle de Usuários</h3>
     <div class="row q-col-gutter-md q-mb-md">
       <div class="col-10">
         <q-input filled v-model="search" label="Filtrar usuários" />
@@ -8,8 +8,8 @@
       <div class="col-2">
         <q-btn
           color="primary"
-          label="Adicionar Novo Usuário"
-          @click="openModal"
+          label="Adicionar Usuário"
+          @click="openAddUserModal"
         />
       </div>
     </div>
@@ -38,14 +38,16 @@
               icon="person"
               text-color="black"
               label="Editar"
+              @click="openEditUserModal(user)"
             />
           </td>
           <td>
             <q-btn
               color="green"
-              icon="add"
+              icon="wallet"
               text-color="white"
-              label="Adicionar Pontos"
+              label="Gerenciamento de Pontos"
+              @click="openWalletControlModal(user)"
             />
           </td>
           <td>
@@ -54,6 +56,7 @@
               icon="personremove"
               text-color="white"
               label="Excluir"
+              @click="deleteUser(user)"
             />
           </td>
         </tr>
@@ -77,29 +80,42 @@
 
     <AddUserDialog
       :is-modal-open="isModalOpen"
+      :user="selectedUser"
       @close="closeModal"
       @user-added="userAdded"
       @notification="handleNotification"
       :existing-users="users"
     />
+    <WalletControl
+      :is-modal-open="isWalletControlModalOpen"
+      :user="selectedUser"
+      @close="closeModal"
+    />
+  </div>
+  <div id="q-app" style="min-height: 100vh">
+    <div class="q-pa-md q-gutter-sm"></div>
   </div>
 </template>
 
 <script>
 import axios from "axios";
 import AddUserDialog from "../components/AddUserModal.vue";
+import WalletControl from "../components/WalletControlModal.vue";
 
 export default {
   name: "UserList",
   components: {
     AddUserDialog,
+    WalletControl,
   },
   data() {
     return {
       users: [],
       search: "",
       loading: true,
+      isWalletControlModalOpen: false,
       isModalOpen: false,
+      selectedUser: null,
       currentPage: 1,
       itemsPerPage: 15,
     };
@@ -108,28 +124,69 @@ export default {
     this.fetchUsers();
   },
   methods: {
+    async deleteUser(user) {
+      this.$q
+        .dialog({
+          title: "Confirmar Exclusão",
+          message: `Tem certeza de que deseja excluir o usuário ${user.nome}?`,
+          cancel: true,
+          persistent: true,
+        })
+        .onOk(async () => {
+          try {
+            await axios.delete(
+              `http://localhost:8080/api/v1/usuarios/${user.id}`
+            );
+            this.$q.notify({
+              color: "green-4",
+              position: "top",
+              textColor: "white",
+              icon: "cloud_done",
+              message: "Usuário excluído com sucesso!",
+            });
+            this.fetchUsers();
+          } catch (error) {
+            this.$q.notify({
+              color: "red-5",
+              position: "top",
+              textColor: "white",
+              icon: "error",
+              message: "Erro ao excluir usuário: " + error.message,
+            });
+          }
+        });
+    },
     async fetchUsers() {
       try {
-        console.log("Fetching users...");
         const response = await axios.get(
           "http://localhost:8080/api/v1/usuarios"
         );
-        console.log("Response:", response);
         this.users = response.data;
       } catch (error) {
-        console.error("Error fetching users:", error);
       } finally {
         this.loading = false;
       }
     },
-    openModal() {
+    openAddUserModal() {
+      this.selectedUser = null;
       this.isModalOpen = true;
+    },
+    openEditUserModal(user) {
+      this.selectedUser = { ...user };
+      this.isModalOpen = true;
+    },
+    openWalletControlModal(user) {
+      this.selectedUser = user;
+      this.isWalletControlModalOpen = true;
     },
     closeModal() {
       this.isModalOpen = false;
+      this.isWalletControlModalOpen = false;
+      this.fetchUsers();
     },
-    userAdded(newUser) {
-      this.users.push(newUser);
+    async userAdded(newUser) {
+      await this.fetchUsers(); // Recarrega a lista de usuários
+      this.closeModal(); // Fecha o modal após adicionar o usuário
     },
     onPageChange(page) {
       this.currentPage = page;

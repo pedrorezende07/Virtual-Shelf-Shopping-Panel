@@ -1,6 +1,7 @@
 import MainLayout from "layouts/MainLayout.vue";
 import Home from "pages/Home.vue";
 import UserList from "pages/UserList.vue";
+import ProductList from "pages/ProductList.vue";
 
 const routes = [
   {
@@ -9,6 +10,7 @@ const routes = [
     children: [
       { path: "", component: Home },
       { path: "users", component: UserList },
+      { path: "products", component: ProductList },
     ],
   },
 ];

@@ -1,5 +1,5 @@
 import { createApp } from "vue";
-import { Quasar } from "quasar";
+import { Quasar, Dialog, Notify } from "quasar"; // Importe os plugins necessários
 import "quasar/dist/quasar.css";
 import App from "./App.vue";
 import router from "./router";
@@ -7,7 +7,10 @@ import router from "./router";
 const app = createApp(App);
 
 app.use(Quasar, {
-  plugins: {}, // Import Quasar plugins and add here
+  plugins: {
+    Dialog, // Adicione o plugin Dialog
+    Notify, // Adicione o plugin Notify
+  },
 });
 
 app.use(router);
