@@ -12,7 +12,7 @@
           bottom-slots
           v-model="filterCategory"
           :options="categories"
-          label="Filtra por categoria"
+          label="Filtrar por categoria"
         >
           <template v-slot:append>
             <q-icon
@@ -23,13 +23,13 @@
           </template>
         </q-select>
       </div>
-      <div class="col-2">
+      <!-- <div class="col-2">
         <q-btn
           color="primary"
           label="Adicionar Produto"
           @click="openAddProductModal"
         />
-      </div>
+      </div>-->
     </div>
 
     <div class="cards-container">
@@ -53,7 +53,12 @@
           </q-card-section>
 
           <q-card-actions>
-            <q-btn flat color="primary" label="Editar" />
+            <q-btn
+              flat
+              color="primary"
+              label="Editar"
+              @click="openEditProductModal(product)"
+            />
             <q-space />
             <div class="text-overline text-green-10">
               {{ product.valor }} pontos
@@ -67,13 +72,25 @@
       </div>
     </div>
   </div>
+  <AddProductDialog
+    :is-modal-open="isModalOpen"
+    :product="selectedProduct"
+    @close="closeModal"
+    @product-added="productAdded"
+    @notification="handleNotification"
+    :existing-products="products"
+  />
 </template>
 
 <script>
 import axios from "axios";
+import AddProductDialog from "../components/AddProductModal.vue";
 
 export default {
   name: "ProductList",
+  components: {
+    AddProductDialog,
+  },
   data() {
     return {
       products: [],
@@ -81,6 +98,8 @@ export default {
       filterCategory: [],
       categories: [],
       loading: true,
+      isModalOpen: false,
+      selectedProduct: null,
     };
   },
   mounted() {
@@ -88,12 +107,14 @@ export default {
   },
   watch: {
     filterCategory(newVal) {
-      // Atualiza o campo de pesquisa com as categorias selecionadas
-
       this.search = newVal.label;
     },
   },
   methods: {
+    openEditProducModal(product) {
+      this.selectedProduct = { ...product };
+      this.isModalOpen = true;
+    },
     clearFilterCategory() {
       this.filterCategory = [];
       this.search = "";
@@ -104,21 +125,47 @@ export default {
           "http://localhost:8080/api/v1/produtos"
         );
         this.products = response.data;
-        this.categorizandoProdutos();
+        this.categorizeProducts();
       } catch (error) {
+        console.error("Erro ao buscar produtos:", error);
       } finally {
         this.loading = false;
       }
     },
-    categorizandoProdutos() {
-      const categorias = this.products.flatMap((product) => [
+    categorizeProducts() {
+      const categories = this.products.flatMap((product) => [
         product.categoria.nome,
         product.subcategoria.nome,
       ]);
-      const categoriasUnicas = [...new Set(categorias)].filter(Boolean);
-      this.categories = categoriasUnicas.map((categoria) => ({
+      const uniqueCategories = [...new Set(categories)].filter(Boolean);
+      this.categories = uniqueCategories.map((categoria) => ({
         label: categoria,
       }));
+    },
+    openAddProductModal() {
+      this.selectedProduct = null;
+      this.isModalOpen = true;
+    },
+    openEditProductModal(product) {
+      this.selectedProduct = { ...product };
+      this.isModalOpen = true;
+    },
+    closeModal() {
+      this.isModalOpen = false;
+      this.fetchProducts();
+    },
+    async productAdded(newProduct) {
+      await this.fetchProducts();
+      this.closeModal();
+    },
+    handleNotification({ message, type }) {
+      this.$q.notify({
+        color: type === "success" ? "green-4" : "red-5",
+        position: "top",
+        textColor: "white",
+        icon: type === "success" ? "cloud_done" : "error",
+        message,
+      });
     },
   },
   computed: {
