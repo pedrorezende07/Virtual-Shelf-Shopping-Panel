@@ -6,7 +6,7 @@
     <!-- Drawer -->
     <q-drawer v-model="leftDrawerOpen" side="left" bordered>
       <q-list>
-        <q-item clickable v-ripple to="/home">
+        <q-item clickable v-ripple to="/">
           <q-item-section>Home</q-item-section>
         </q-item>
         <q-item clickable v-ripple to="/users">
@@ -14,6 +14,9 @@
         </q-item>
         <q-item clickable v-ripple to="/products">
           <q-item-section>Produtos</q-item-section>
+        </q-item>
+        <q-item clickable v-ripple to="/cart">
+          <q-item-section>Carrinho de compras</q-item-section>
         </q-item>
       </q-list>
     </q-drawer>
